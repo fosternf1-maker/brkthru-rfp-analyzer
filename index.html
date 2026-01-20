@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brkthru RFP Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body class="bg-gradient-to-br from-orange-50 via-white to-slate-50 min-h-screen">
     <div id="app" class="max-w-6xl mx-auto p-8">
@@ -168,10 +169,34 @@
 
         function readFile(file) {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = reject;
-                reader.readAsText(file);
+                const fileName = file.name.toLowerCase();
+                
+                // Handle Word documents (.docx)
+                if (fileName.endsWith('.docx')) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const arrayBuffer = e.target.result;
+                            const result = await mammoth.extractRawText({ arrayBuffer });
+                            resolve(result.value);
+                        } catch (error) {
+                            reject(new Error('Failed to read Word document: ' + error.message));
+                        }
+                    };
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsArrayBuffer(file);
+                }
+                // Handle PDF files
+                else if (fileName.endsWith('.pdf')) {
+                    reject(new Error('PDF parsing requires additional setup. Please save as .txt or .docx'));
+                }
+                // Handle plain text files
+                else {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                }
             });
         }
 
@@ -385,12 +410,12 @@ OUTPUT AS JSON:
                 <div class="bg-white rounded-2xl shadow-xl p-8">
                     <label class="block cursor-pointer mb-8">
                         <div class="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center hover:border-orange-400 transition">
-                            <input type="file" onchange="handleFileUpload(event)" accept=".pdf,.doc,.docx,.txt" class="hidden"/>
+                            <input type="file" onchange="handleFileUpload(event)" accept=".docx,.txt" class="hidden"/>
                             <svg class="w-12 h-12 mx-auto mb-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
                             <p class="text-lg font-medium text-slate-700">${state.file ? state.file.name : 'Drop RFP or click to upload'}</p>
-                            <p class="text-sm text-slate-500">PDF, Word, or Text</p>
+                            <p class="text-sm text-slate-500">Word (.docx) or Text (.txt)</p>
                         </div>
                     </label>
 
